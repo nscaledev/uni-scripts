@@ -56,9 +56,10 @@ if [[ -f go.mod ]]; then
 elif [[ -f package.json ]]; then
 	GIT_REPO="$(jq -r .repository.url package.json | sed -e 's,https://,,')"
 fi
-GIT_ORG_NAME=$(echo -n "${GIT_REPO}" | cut -d '/' -f 2)
+#GIT_ORG_NAME=$(echo -n "${GIT_REPO}" | cut -d '/' -f 2)
+GIT_ORG_NAME=nscaledev
 GIT_REPO_NAME=$(echo -n "${GIT_REPO}" | cut -d '/' -f 3)
-HELM_REPO="https://${GIT_ORG_NAME}.github.io/${GIT_REPO_NAME}"
+HELM_REPO="https://${GIT_ORG_NAME}.github.io/uni-${GIT_REPO_NAME}"
 HELM_CHART_DIR="charts/${GIT_REPO_NAME}"
 HELM_CHART=$(yq .name "${HELM_CHART_DIR}/Chart.yaml")
 HELM_CRD_DIR="${HELM_CHART_DIR}/crds"
