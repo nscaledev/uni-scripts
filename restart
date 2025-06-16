@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Restarts a unikorn component.  Gets more hardcore than the deploy
 # command when you've not mdified anything that would cause a pod

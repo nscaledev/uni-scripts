@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # All Unikorn components use the same build system, so can be built in a generic
 # manner.  This does the build and pushes it into KinD.
@@ -8,4 +8,10 @@
 CHART="$(ls charts)"
 CHART_META="charts/${CHART}/Chart.yaml"
 
-make images-kind-load VERSION="$(yq .version "${CHART_META}")"
+if [[ "$(uname)" == "Darwin" ]]; then
+	MAKECMD="gmake"
+else
+	MAKECMD="make"
+fi
+
+$MAKECMD images-kind-load VERSION="$(yq .version "${CHART_META}")"
