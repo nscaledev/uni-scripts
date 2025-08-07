@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 for i in core identity region compute kubernetes ui; do
 	VERSION=$(helm -n "unikorn-${i}" ls -o json | jq -r .[0].app_version)
