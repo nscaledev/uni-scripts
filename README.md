@@ -1,7 +1,4 @@
-# Unikorn Scripts
-
-![Unikorn Logo](https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/light-on-dark/logo.svg#gh-dark-mode-only)
-![Unikorn Logo](https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/dark-on-light/logo.svg#gh-light-mode-only)
+# Scripts
 
 Useful shiz for developing Unikorn.
 
@@ -57,7 +54,7 @@ This deletes any danging images.
 
 ### uv
 
-Display all deployed unikorn versions.
+Display all deployed versions.
 
 ## Typical Usage
 
