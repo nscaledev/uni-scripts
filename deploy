@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Deploys a unikorn component.  Will only work if the chart version
 # has been bumped, otherwise you will need to manually restart all
