@@ -42,6 +42,10 @@ This is used when a deploy would do nothing, e.g. the pod images or arguments ha
 
 Uses the canonical version in Chart.yaml to tag and push, creating a release.
 
+### release.py
+
+A powerful script that does 95% of a full release or release candidate.
+
 ### ui-preview
 
 UI developer mode script, which has live reload and debug information readily available in your browser.
