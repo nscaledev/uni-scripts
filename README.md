@@ -62,6 +62,13 @@ Display all deployed versions.
 
 ## Typical Usage
 
+Optionally, set custom paths to binaries:
+
+```shell
+export KUBECTL_BINARY=/path/to/custom/kubectl
+export HELM_BINARY=/path/to/custom/helm
+```
+
 Fresh install:
 
 ```shell

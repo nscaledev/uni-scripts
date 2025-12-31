@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
+# Set paths to binaries.
+HELM_BINARY=${HELM_BINARY:-helm}
+
 for i in core identity region compute kubernetes ui; do
-	VERSION=$(helm -n "unikorn-${i}" ls -o json | jq -r .[0].app_version)
+	VERSION=$("${HELM_BINARY}" -n "unikorn-${i}" ls -o json | jq -r .[0].app_version)
 	echo -e "${i} ${VERSION}"
 done | column -t 
