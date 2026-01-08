@@ -10,4 +10,5 @@ BINARIES := build \
 
 .PHONY: install
 install: $(BINARIES)
+	mkdir -p $(PREFIX)
 	for binary in $(BINARIES); do install -m 0755 $${binary} $(PREFIX); done

@@ -76,13 +76,14 @@ build && restart
 
 ## Installation
 
-Run:
+`yq` is required, on mac, `brew install yq`
 
+Run:
 ```shell
-make install
+sudo make install PREFIX=/usr/local/bin
 ```
 
-**NOTE**: This defaults to ~/bin, you can set `PREFIX` to modify this.
+**NOTE**: PREFIX defaults to ~/bin, and this is not in PATH for mac.
 
 ## Contribution
 
