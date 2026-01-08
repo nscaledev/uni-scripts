@@ -76,6 +76,8 @@ build && restart
 
 ## Installation
 
+`yq` is required, on mac, `brew install yq`
+
 Run:
 ```shell
 sudo make install PREFIX=/usr/local/bin
