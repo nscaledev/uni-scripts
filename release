@@ -7,7 +7,7 @@
 
 CHART="$(ls charts)"
 CHART_META="charts/${CHART}/Chart.yaml"
-TAG="$(yq .version "${CHART_META}")"
+TAG="v$(yq .version "${CHART_META}")"
 
 git tag "${TAG}"
 git push origin "${TAG}"
