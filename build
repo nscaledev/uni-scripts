@@ -8,4 +8,4 @@
 CHART="$(ls charts)"
 CHART_META="charts/${CHART}/Chart.yaml"
 
-make images-kind-load VERSION="$(yq .version "${CHART_META}")"
+make images-kind-load VERSION="v$(yq .version "${CHART_META}")"

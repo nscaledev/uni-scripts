@@ -82,7 +82,7 @@ class Component:
 
             m = re.match(r'(version|appVersion):', line)
             if m:
-                line = f'{m.group(1)}: {canonical_version(version)}\n'
+                line = f'{m.group(1)}: {canonical_version(version)[1:]}\n'
 
             lines.append(line)
 
