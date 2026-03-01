@@ -23,6 +23,10 @@ TEMPLATE=""
 # Allow development chart versions.
 DEVELOPMENT=""
 
+# Set paths to binaries.
+KUBECTL_BINARY=${KUBECTL_BINARY:-kubectl}
+HELM_BINARY=${HELM_BINARY:-helm}
+
 while getopts "e:n:v:ptd" opt; do
 	case "${opt}" in
 		e)
@@ -97,7 +101,7 @@ COMMAND=(upgrade --install --create-namespace)
 # If we are doing a non-template run, update the CRDs as helm doesn't do this.
 if [[ -z ${TEMPLATE} ]]; then
 	if [[ -d ${HELM_CRD_DIR} ]]; then
-		kubectl apply -f "${HELM_CRD_DIR}"
+		"${KUBECTL_BINARY}" apply -f "${HELM_CRD_DIR}"
 	fi
 else
 	COMMAND=(template --no-hooks --skip-tests)
@@ -105,8 +109,8 @@ fi
 
 if [[ -z ${PRODUCTION} ]]; then
 	# Deploy the actual chart.
-	helm "${COMMAND[@]}" -n "${NAMESPACE}" "${GIT_REPO_NAME}" "${HELM_CHART_DIR}" "${ARGS[@]}"
+	"${HELM_BINARY}" "${COMMAND[@]}" -n "${NAMESPACE}" "${GIT_REPO_NAME}" "${HELM_CHART_DIR}" "${ARGS[@]}"
 else
-	helm repo update "${NAMESPACE}" > /dev/null 2>&1
-	helm "${COMMAND[@]}" -n "${NAMESPACE}" "${GIT_REPO_NAME}" "${HELM_CHART}" --repo "${HELM_REPO}" "${ARGS[@]}"
+	"${HELM_BINARY}" repo update "${NAMESPACE}" > /dev/null 2>&1
+	"${HELM_BINARY}" "${COMMAND[@]}" -n "${NAMESPACE}" "${GIT_REPO_NAME}" "${HELM_CHART}" --repo "${HELM_REPO}" "${ARGS[@]}"
 fi
