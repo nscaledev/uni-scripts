@@ -16,5 +16,8 @@ REPO=$(basename "$(pwd)")
 # Define some constants for Helm
 NAMESPACE="${NAMESPACE_PREFIX}-${REPO}"
 
+# Set paths to binaries.
+KUBECTL_BINARY=${KUBECTL_BINARY:-kubectl}
+
 # Do any specializations.
-kubectl delete pod --namespace "${NAMESPACE}" --all --now
+"${KUBECTL_BINARY}" delete pod --namespace "${NAMESPACE}" --all --now
