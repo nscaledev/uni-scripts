@@ -18,18 +18,19 @@ Prerequisites:
 
 import argparse
 import contextlib
+from dataclasses import dataclass, field
 import glob
 import os
+from collections.abc import Callable, Iterator
 import subprocess
 import time
-import typing
 import re
 from typing import TextIO
 
 import semver
 
 @contextlib.contextmanager
-def pushd(directory: str) -> None:
+def pushd(directory: str) -> Iterator[None]:
     """
     Allows a code block to be temporarily run in a new directory, much
     like how it does in a shell.
@@ -53,15 +54,37 @@ def release_branch(version: semver.Version) -> str:
     """
     return f'v{version.major}.{version.minor}.x'
 
+def run(*args: str, **kwargs) -> None:
+    """
+    Run a subprocess and raise if it fails.
+    """
+    subprocess.check_call(list(args), **kwargs)
+
+def capture(*args: str) -> str:
+    """
+    Run a subprocess and return stripped stdout.
+    """
+    return subprocess.check_output(list(args), text=True).strip()
+
+def rewrite_file(path: str, update: Callable[[TextIO], str]) -> None:
+    """
+    Read a file, transform its content, then write it back.
+    """
+    with open(path, 'r', encoding='utf-8') as file:
+        contents = update(file)
+
+    with open(path, 'w', encoding='utf-8') as file:
+        file.write(contents)
+
+@dataclass(slots=True)
 class Component:
     """
     Wraps up a single component in the system in a generic type.
     """
 
-    def __init__(self, name: str, dependencies: list[str] = None, precommit_hook: typing.Callable[[], None] = None) -> None:
-        self.name = name
-        self.dependencies = dependencies if dependencies else []
-        self.precommit_hook = precommit_hook
+    name: str
+    dependencies: list[str] = field(default_factory=list)
+    precommit_hook: Callable[[], None] | None = None
 
     def validate(self, version: semver.Version) -> None:
         """
@@ -73,26 +96,43 @@ class Component:
 
         with pushd(self.name):
             # Ensure our view of the remote is up to date...
-            subprocess.check_call(['git', 'fetch', 'origin'])
+            run('git', 'fetch', 'origin')
 
             rel_branch = release_branch(version)
+            remote_branch = f'origin/{rel_branch}'
+
+            def remote_branch_exists() -> bool:
+                try:
+                    run(
+                        'git', 'rev-parse', '--verify', '--quiet', f'refs/remotes/{remote_branch}',
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    return True
+                except subprocess.CalledProcessError:
+                    return False
 
             # We either need to be on the release branch already...
-            branch = subprocess.check_output(['git', 'branch', '--show-current']).decode('utf-8').strip()
+            branch = capture('git', 'branch', '--show-current')
             if branch != rel_branch:
                 # Or be an ancestor of main.
                 try:
-                    subprocess.check_call(['git', 'merge-base', '--is-ancestor', 'HEAD', 'main'])
+                    run('git', 'merge-base', '--is-ancestor', 'HEAD', 'main')
                 except subprocess.CalledProcessError as exc:
                     raise RuntimeError(f'component {self.name} is not checked out to an ancestor of main main or {rel_branch}') from exc
 
                 # If we are on main, create a new branch and push before we make any changes.
-                subprocess.check_call(['git', 'checkout', '-b', rel_branch])
-                subprocess.check_call(['git', 'push', 'origin', rel_branch])
+                run('git', 'checkout', '-b', rel_branch)
+                run('git', 'push', 'origin', rel_branch)
             else:
+                # If the remote branch does not exist yet, publish it now so the
+                # rest of the release flow can target it.
+                if not remote_branch_exists():
+                    run('git', 'push', '-u', 'origin', rel_branch)
+
                 # Ensure that the remote is an ancestor of our local branch as we
                 # may have cherry-picked commits in it, and don't want to erase history!
-                subprocess.check_call(['git', 'merge-base', '--is-ancestor', f'origin/{rel_branch}', 'HEAD'])
+                run('git', 'merge-base', '--is-ancestor', remote_branch, 'HEAD')
 
     def _update_chart_contents(self, file: TextIO, version: semver.Version) -> str:
         """
@@ -100,11 +140,7 @@ class Component:
         """
         lines: list[str] = []
 
-        while True:
-            line = file.readline()
-            if not line:
-                break
-
+        for line in file:
             m = re.match(r'(version|appVersion):', line)
             if m:
                 line = f'{m.group(1)}: {canonical_version(version)[1:]}\n'
@@ -117,11 +153,7 @@ class Component:
         """
         Replace the versions in the given chart file.
         """
-        with open(path, 'r', encoding="utf-8") as chart:
-            contents = self._update_chart_contents(chart, version)
-
-        with open(path, 'w', encoding="utf-8") as chart:
-            chart.write(contents)
+        rewrite_file(path, lambda chart: self._update_chart_contents(chart, version))
 
     def _update_openapi_contents(self, file: TextIO, version: semver.Version) -> str:
         """
@@ -129,14 +161,10 @@ class Component:
         """
         lines: list[str] = []
 
-        while True:
-            line = file.readline()
-            if not line:
-                break
-
+        for line in file:
             m = re.match(r'(\s+version):\s+\d+(\.\d+){2}', line)
             if m:
-                line = f'{m.group(1)}: {str(version)}\n'
+                line = f'{m.group(1)}: {version}\n'
 
             lines.append(line)
 
@@ -146,11 +174,7 @@ class Component:
         """
         Replace the versions in the given openapi file.
         """
-        with open(path, 'r', encoding="utf-8") as chart:
-            contents = self._update_openapi_contents(chart, version)
-
-        with open(path, 'w', encoding="utf-8") as chart:
-            chart.write(contents)
+        rewrite_file(path, lambda chart: self._update_openapi_contents(chart, version))
 
     def release(self, version: semver.Version) -> None:
         """
@@ -169,9 +193,9 @@ class Component:
             if self.dependencies:
                 print("\033[1mUpdating Go Dependencies\033[0m ...")
                 for dependency in self.dependencies:
-                    subprocess.check_call(['go', 'get', f'github.com/unikorn-cloud/{dependency}@{canonical_version(version)}'])
+                    run('go', 'get', f'github.com/unikorn-cloud/{dependency}@{canonical_version(version)}')
 
-                subprocess.check_call(['go', 'mod', 'tidy'])
+                run('go', 'mod', 'tidy')
 
             if not version.prerelease:
                 print("\033[1mUpdating OpenAPI\033[0m ...")
@@ -180,7 +204,7 @@ class Component:
                     raise RuntimeError(f'expected to find 0 or 1 OpenAPI spec.yaml for component {self.name}')
                 if matches:
                     self._update_openapi(matches[0], version)
-                    subprocess.check_call(['make', 'validate'])
+                    run('make', 'validate')
 
             if self.precommit_hook:
                 print("\033[1mCalling Precommit Hook\033[0m ...")
@@ -192,11 +216,11 @@ class Component:
             rel_branch = release_branch(version)
 
             print("\033[1mCommitting Update\033[0m ...")
-            subprocess.check_call(['git', 'checkout', '-b', branch])
-            subprocess.check_call(['git', 'add', '.'])
-            subprocess.check_call(['git', 'commit', '-m', title])
-            subprocess.check_call(['git', 'push', '-f', 'origin', branch])
-            subprocess.check_call(['gh', 'pr', 'create', '--base', rel_branch, '--head', branch, '--fill'])
+            run('git', 'checkout', '-b', branch)
+            run('git', 'add', '.')
+            run('git', 'commit', '-m', title)
+            run('git', 'push', '-f', 'origin', branch)
+            run('gh', 'pr', 'create', '--base', rel_branch, '--head', branch, '--fill')
 
             print("\033[1mPerforming Status Checks\033[0m ...")
             # Make sure to give the status checks time to start...
@@ -205,26 +229,26 @@ class Component:
             # finishing off the rest of this function by hand and continuing --from the
             # next repository.
             time.sleep(30)
-            subprocess.check_call(['gh', 'pr', 'checks', '--watch'])
+            run('gh', 'pr', 'checks', '--watch')
 
             print("\033[1mMerge\033[0m ...")
             input("Please get the pull request approved and merged, then hit ENTER to continue")
 
             print("\033[1mRelease\033[0m ...")
-            subprocess.check_call(['git', 'checkout', rel_branch])
-            subprocess.check_call(['git', 'pull', 'origin', rel_branch])
-            subprocess.check_call(['git', 'tag', tag])
-            subprocess.check_call(['git', 'push', 'origin', tag])
-            subprocess.check_call(['git', 'branch', '-D', branch])
+            run('git', 'checkout', rel_branch)
+            run('git', 'pull', 'origin', rel_branch)
+            run('git', 'tag', tag)
+            run('git', 'push', 'origin', tag)
+            run('git', 'branch', '-D', branch)
 
 def ui_npm_update():
     """
     Updates the UI with the full release's OpenAPI clients.
     """
-    subprocess.check_call(['npm', 'run', 'openapi:identity'])
-    subprocess.check_call(['npm', 'run', 'openapi:region'])
-    subprocess.check_call(['npm', 'run', 'openapi:compute'])
-    subprocess.check_call(['npm', 'run', 'openapi:kubernetes'])
+    run('npm', 'run', 'openapi:identity')
+    run('npm', 'run', 'openapi:region')
+    run('npm', 'run', 'openapi:compute')
+    run('npm', 'run', 'openapi:kubernetes')
 
 
 COMPONENTS = [
@@ -239,7 +263,7 @@ COMPONENTS = [
         Component('ui', precommit_hook=ui_npm_update),
 ]
 
-def components_from(step: str) -> list[Component]:
+def components_from(step: str | None) -> list[Component]:
     """
     Returns all components from the given step
     """
@@ -248,24 +272,10 @@ def components_from(step: str) -> list[Component]:
         return COMPONENTS
 
     index = next((i for i, c in enumerate(COMPONENTS) if c.name == step), -1)
+    if index == -1:
+        raise ValueError(f'unknown component {step}')
 
     return COMPONENTS[index:]
-
-
-class SemverNormalizeAction(argparse.Action):
-    """
-    Some things (Go) mandate semvers as having a "v" prefix you can
-    use whatever you are comfortable with and we'll handle it!
-    """
-    def __init__(self, option_strings, dest, nargs=None, **kwargs):
-        if nargs is not None:
-            raise ValueError("nargs not allowed")
-        super().__init__(option_strings, dest, **kwargs)
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        if values[0] == 'v':
-            values = values[1:]
-        setattr(namespace, self.dest, values)
 
 def main():
     """
@@ -273,12 +283,12 @@ def main():
     """
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--version', required=True, action=SemverNormalizeAction)
+    parser.add_argument('--version', required=True)
     parser.add_argument('--from-step', choices=[x.name for x in COMPONENTS])
 
     args = parser.parse_args()
 
-    version = semver.Version.parse(args.version)
+    version = semver.Version.parse(args.version.removeprefix('v'))
 
     components = components_from(args.from_step)
 
