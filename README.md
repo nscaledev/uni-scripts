@@ -46,6 +46,8 @@ Uses the canonical version in Chart.yaml to tag and push, creating a release.
 
 A powerful script that does 95% of a full release or release candidate.
 
+The bump PR branch is named `bump-vX.Y.Z` (derived from the target version without any pre-release suffix), so concurrent releases targeting different `X.Y.Z` versions will not collide on the shared branch. Release candidates of the same `X.Y.Z` (e.g. `rc1` and `rc2`) still reuse the same branch and are expected to run sequentially.
+
 ### ui-preview
 
 UI developer mode script, which has live reload and debug information readily available in your browser.

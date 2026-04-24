@@ -210,8 +210,8 @@ class Component:
                 print("\033[1mCalling Precommit Hook\033[0m ...")
                 self.precommit_hook()
 
-            branch = 'bump'
             tag = canonical_version(version)
+            branch = f'bump-v{version.major}.{version.minor}.{version.patch}'
             title = f'Version {tag}'
             rel_branch = release_branch(version)
 
