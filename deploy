@@ -23,7 +23,11 @@ TEMPLATE=""
 # Allow development chart versions.
 DEVELOPMENT=""
 
-while getopts "e:n:v:ptd" opt; do
+# Extra values files, layered after the environment's so they win. Repeatable, and useful
+# when the values live in a repository rather than under ~/.config/unikorn.
+EXTRA_VALUES=()
+
+while getopts "e:n:v:f:ptd" opt; do
 	case "${opt}" in
 		e)
 			ENVIRONMENT=${OPTARG}
@@ -42,6 +46,9 @@ while getopts "e:n:v:ptd" opt; do
 			;;
 		d)
 			DEVELOPMENT="true"
+			;;
+		f)
+			EXTRA_VALUES+=("-f" "${OPTARG}")
 			;;
 		*)
 			echo "Unexpected flag -${opt}"
@@ -80,6 +87,11 @@ VALUES_FILE="${HOME}/.config/unikorn/${ENVIRONMENT}/${GIT_REPO_NAME}.yaml"
 
 if [[ -f ${VALUES_FILE} ]]; then
 	ARGS+=("-f" "${VALUES_FILE}")
+fi
+
+# Last, so an explicitly named file overrides the environment's.
+if [[ ${#EXTRA_VALUES[@]} -gt 0 ]]; then
+	ARGS+=("${EXTRA_VALUES[@]}")
 fi
 
 if [[ -n ${DEVELOPMENT} ]]; then
